@@ -4,12 +4,20 @@ const User = require('../../dal/models/user.model');
 const { generateJWT } = require('../../services/helpers/jwt');
 const { BaseController } = require('./base.controller');
 const { sendCustomMail } = require('./../../services/helpers/mail');
+const { generateApiKey } = require('generate-api-key');
 
+const getGeneratedAppKey = () => {
+  return generateApiKey({
+    method: 'string',
+    pool: '0123456789ABCDEF',
+  }); // ⇨ 'QFLSGIDLOUAELQZTQXMHQNJ'
+}
 class UserController extends BaseController {
 
   constructor(model) {
     super(model);
   }
+
 
   ///////////////////////////////////////
   /*                 GET               */
@@ -42,6 +50,12 @@ class UserController extends BaseController {
         });
       }
       const user = new User(req.body);
+
+      if (req.body.appKey) {
+        user.appKey = req.body.appKey;
+      } else {
+        user.appKey = getGeneratedAppKey();
+      }
 
       /************************************* 
        *       Password encriptation

@@ -28,7 +28,7 @@ class AuthController extends BaseController {
       }
 
 
-       /*        Password Verification        */
+      /*        Password Verification        */
       const validPassword = bcrypt.compareSync(password, dbUser.password);
 
       if (!validPassword) {
@@ -40,7 +40,7 @@ class AuthController extends BaseController {
 
 
       /*          JWT Generation        */
-      const token = await generateJWT(dbUser.id);
+      const token = await generateJWT(dbUser.id, dbUser.appKey);
       res.json({
         ok: true,
         msg: 'login ok',
@@ -58,19 +58,19 @@ class AuthController extends BaseController {
 
 
 
-  
+
   /******************************
    * GOOGLE LOGIN
   ******************************/
-  googleSignIn = async (req, res = response ) => {
-    const { id_token }  = req.body;
-    try{
+  googleSignIn = async (req, res = response) => {
+    const { id_token } = req.body;
+    try {
       const googleUser = await googleVerify(id_token);
       // console.log(googleUser);
 
-      let user =  await User.findOne({email: googleUser.email});
+      let user = await User.findOne({ email: googleUser.email });
       // console.log(user);
-      if(!user){
+      if (!user) {
         const data = {
           name: googleUser.name,
           email: googleUser.email,
@@ -80,13 +80,13 @@ class AuthController extends BaseController {
         user = new User(data);
         await user.save();
       }
-      
+
       res.json({
         token: await generateJWT(user.id),
         msg: "google sign in success",
         user: googleUser
       })
-    }catch(error){
+    } catch (error) {
       res.status(300).json({
         ok: false,
         msg: 'Not a valid google token'

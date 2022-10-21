@@ -24,6 +24,9 @@ const UserSchema = Schema({
     type: String,
     default: 'USER_ROLE'
   },
+  appKey: {
+    type: String
+  },
   google: {
     type: Boolean,
     default: false

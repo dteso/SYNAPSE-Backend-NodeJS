@@ -48,7 +48,10 @@ const DeviceSchema = Schema({
     type: String
   },
   user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-  customer: { type: Schema.Types.ObjectId, ref: 'Customer', required: false }
+  customer: { type: Schema.Types.ObjectId, ref: 'Customer', required: false },
+  appKey: {
+    type: String
+  }
 });
 
 DeviceSchema.method('toJSON', function () {
