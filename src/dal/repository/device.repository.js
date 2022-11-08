@@ -29,6 +29,15 @@ class DeviceRepository {
             throw Error(`">>> BaseRepository:getByUser(/userId) --> " ${e}`);
         }
     }
+
+    async getDeviceByMacAndAppKey(MAC, appKey) {
+        try {
+            return await Device.find({ MAC, appKey }).populate('user', '_id name email google role').populate('customer', '_id name location');
+        } catch (e) {
+            throw Error(`">>> BaseRepository:getByUser(/userId) --> " ${e}`);
+        }
+    }
+
 }
 
 /* EXPORTACIONES */

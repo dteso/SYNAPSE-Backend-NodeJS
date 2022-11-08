@@ -1,7 +1,8 @@
 const { DeviceRepository } = require('../dal/repository/device.repository');
 const Device = require('../dal/models/device.model');
+const { BaseService } = require('./base.service');
 
-class DeviceService {
+class DeviceService extends BaseService {
 
     deviceRepository = new DeviceRepository();
 
@@ -43,6 +44,15 @@ class DeviceService {
         try {
             let userId = req.uid;
             return await this.deviceRepository.getDevicesByUserId(userId);
+        } catch (e) {
+            throw Error(`>>> DeviceService: getDeviceByLoggedUser() -> Error getting devices: + ${e}`);
+        }
+    }
+
+
+    async getDeviceByMacAndAppKey(MAC, appKey) {
+        try {
+            return await this.deviceRepository.getDeviceByMacAndAppKey(MAC, appKey);
         } catch (e) {
             throw Error(`>>> DeviceService: getDeviceByLoggedUser() -> Error getting devices: + ${e}`);
         }
