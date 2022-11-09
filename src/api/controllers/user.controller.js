@@ -9,7 +9,8 @@ const { generateApiKey } = require('generate-api-key');
 const getGeneratedAppKey = () => {
   return generateApiKey({
     method: 'string',
-    pool: '0123456789ABCDEF',
+    pool: '0123456789abcdef',
+    length: 16
   }); // ⇨ 'QFLSGIDLOUAELQZTQXMHQNJ'
 }
 class UserController extends BaseController {
@@ -57,6 +58,12 @@ class UserController extends BaseController {
         user.appKey = getGeneratedAppKey();
       }
 
+      if (req.body.notificationId) {
+        user.notificationId = req.body.notificationId;
+      } else {
+        user.notificationId = "";
+      }
+
       /************************************* 
        *       Password encriptation
       *************************************/
@@ -74,7 +81,7 @@ class UserController extends BaseController {
       const token = await generateJWT(dbUser.id);
       ///////////////////////////////////////
 
-      sendCustomMail('digitalislandsp@gmail.com', dbUser.email, 'Registro completado!!!', 'Tu registro en el sistema se ha completado correctamente');
+      //sendCustomMail('digitalislandsp@gmail.com', dbUser.email, 'Registro completado!!!', 'Tu registro en el sistema se ha completado correctamente');
 
 
       res.status(200).json({

@@ -30,6 +30,9 @@ const UserSchema = Schema({
   google: {
     type: Boolean,
     default: false
+  },
+  notificationId: {
+    type: String
   }
 });
 
