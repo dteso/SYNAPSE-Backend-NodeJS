@@ -4,6 +4,10 @@ class SocketService {
 
     currentRooms = [];
 
+    constructor() {
+        this.currentRooms = [];
+    }
+
     /**
      * Retransmite un mensaje a todos los dispositivos conectados al server
      * 
@@ -165,7 +169,7 @@ class SocketService {
      */
     deviceNotIncludedIn(existentRoom, jsonData) {
         const result = existentRoom.devices.filter(dev => dev.MAC === jsonData.data.MAC)[0] === undefined;
-        //console.log('DeviceNotIncludedIn: ', result);
+        console.log('DeviceNotIncludedIn: ', result);
         return result;
     }
 
