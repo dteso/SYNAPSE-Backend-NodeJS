@@ -41,17 +41,28 @@ class SocketService {
         // console.log('JSON DATA: ', jsonData);
         console.log("···········································");
         if (jsonData.data.appKey !== undefined && jsonData.data.appKey !== ' ' && this.currentRooms.filter(room => room.appKey === jsonData.data.appKey)[0] === undefined) {
-            this.createRoom(jsonData, ws);
+
+            if (await this.isRegistered(jsonData)) {
+                console.log("IDENTIFICACIÓN CORRECTA: Autorizado. Se creará nueva sala");
+                this.createRoom(jsonData, ws);
+            } else {
+                console.log("PELIGRO: DISPOSITIVO NO AUTORIZADO!!!. No se creará la sala.");
+                ws.close();
+            }
+
         } else {
             let existentRoom = this.getExistentRoom(jsonData);
 
             if (existentRoom !== undefined && jsonData.data.deviceType === 'APP') {
+
                 if (this.appNotIncludedIn(existentRoom, jsonData) && jsonData.data.appKey != undefined) {
                     this.addAppToExixtentRoom(existentRoom, ws, jsonData); // Si es otro usuario se considera una conexión distinta
                 } else {
                     existentRoom.apps.filter(app => app.user === jsonData.data.user)[0].ws = ws; // Si es el mismo usuario actualizamos su ws
                 }
+
             } else if (existentRoom !== undefined && jsonData.data.deviceType === 'DEV') {
+
                 if (this.deviceNotIncludedIn(existentRoom, jsonData)) { // Comprobar si existe en BD por MAC y appKey
                     console.log("···········································");
                     if (await this.isRegistered(jsonData)) {
@@ -62,6 +73,7 @@ class SocketService {
                         ws.close();
                     }
                 } else {
+                    console.log("Actualizando estado del dispositivo ", jsonData.data.MAC);
                     existentRoom.devices.filter(dev => dev.MAC === jsonData.data.MAC)[0].minLevelReached = jsonData.data.minLevelReached;
                 }
             }
@@ -261,7 +273,7 @@ class SocketService {
      */
     async isRegistered(jsonData) {
 
-        if (jsonData.deviceType === 'DEV') {
+        if (jsonData.data.deviceType === 'DEV') {
             const deviceService = new DeviceService();
             const dbDevices = await deviceService.getDeviceByMacAndAppKey(jsonData.data.MAC, jsonData.data.appKey);
 

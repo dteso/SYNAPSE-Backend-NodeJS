@@ -19,7 +19,9 @@ startSockets = (server) => {
   wss.on('connection', function connection(ws, req) {
 
     ws.on('message', function message(data) {
-      console.log('--- RECEIVED FROM %s: %s', req.socket.remoteAddress, data);
+      console.log('----------------------------------------------------------');
+      console.log('--- RECEIVED %s FROM : %s', req.socket.remoteAddress, data);
+      console.log('----------------------------------------------------------');
       const jsonData = JSON.parse(data);
       socketService.validateConnection(jsonData, ws);
       if (((jsonData.event === 'MESSAGE' || jsonData.event === 'CONNECTION') && jsonData.data.appKey) || jsonData.event === 'USER_COMMAND') {
