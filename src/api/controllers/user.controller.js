@@ -5,6 +5,9 @@ const { generateJWT } = require('../../services/helpers/jwt');
 const { BaseController } = require('./base.controller');
 const { sendCustomMail } = require('./../../services/helpers/mail');
 const { generateApiKey } = require('generate-api-key');
+const { NotificationsService } = require('../../services/notifications.service');
+const { WELCOME_NOTIFICATION } = require('../../services/helpers/notifications.const');
+const Notification = require('../../dal/models/notification.model');
 
 const getGeneratedAppKey = () => {
   return generateApiKey({
@@ -82,7 +85,14 @@ class UserController extends BaseController {
       ///////////////////////////////////////
 
       //sendCustomMail('digitalislandsp@gmail.com', dbUser.email, 'Registro completado!!!', 'Tu registro en el sistema se ha completado correctamente');
+      console.log('Notificar a....', dbUser.notificationId);
 
+      const notification = new Notification(WELCOME_NOTIFICATION(dbUser.notificationId));
+
+      console.log('NOTIFICATION', JSON.stringify(notification));
+      const notificationsService = new NotificationsService();
+      console.log('NOTIFICANDO...');
+      notificationsService.notify(notification);
 
       res.status(200).json({
         ok: true,
@@ -90,6 +100,9 @@ class UserController extends BaseController {
         user,
         token
       });
+
+
+
     } catch (error) {
       console.log(error);
       res.status(500).json({
