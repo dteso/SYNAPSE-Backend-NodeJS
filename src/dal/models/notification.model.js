@@ -8,13 +8,6 @@ class Notification {
         this.contents = notification.contents;
         this.headings = notification.headings;
     }
-
-    app_id = "";
-    included_segments = ["Active Users", "Inactive Users"];
-    included_player_ids = [""];
-    data = { userId: "" };
-    contents = { en: "", es: "" };
-    headings = { en: "", es: "" };
 }
 
 module.exports = Notification;

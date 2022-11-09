@@ -1,4 +1,7 @@
 const { DeviceService } = require('../services/device.service');
+const { NotificationsService } = require('../services/notifications.service');
+const Notification = require('../dal/models/notification.model');
+const { MIN_LEVEL_REACHED_NOTIFICATION, REFILLED_NOTIFICATION } = require('../services/helpers/notifications.const');
 
 class SocketService {
 
@@ -74,7 +77,45 @@ class SocketService {
                     }
                 } else {
                     console.log("Actualizando estado del dispositivo ", jsonData.data.MAC);
-                    existentRoom.devices.filter(dev => dev.MAC === jsonData.data.MAC)[0].minLevelReached = jsonData.data.minLevelReached;
+
+                    if (existentRoom.devices.filter(dev => dev.MAC === jsonData.data.MAC)[0].minLevelReached !== jsonData.data.minLevelReached) {
+                        existentRoom.devices.filter(dev => dev.MAC === jsonData.data.MAC)[0].minLevelReached = jsonData.data.minLevelReached;
+
+                        if (jsonData.data.minLevelReached === 'YES') {
+                            const deviceService = new DeviceService();
+
+                            const dbDevices = await deviceService.getDeviceByMacAndAppKey(jsonData.data.MAC, jsonData.data.appKey);
+
+                            const dbUser = dbDevices[0].user;
+
+                            console.log('Notificar a....', dbUser.notificationId);
+
+                            const notification = new Notification(MIN_LEVEL_REACHED_NOTIFICATION(dbUser.notificationId, dbDevices[0].name));
+                            const notificationsService = new NotificationsService();
+                            notificationsService.notify(notification);
+
+                            // TODO: Grabar en BD
+                        }
+
+
+
+                        if (jsonData.data.minLevelReached === 'NO') {
+                            const deviceService = new DeviceService();
+
+                            const dbDevices = await deviceService.getDeviceByMacAndAppKey(jsonData.data.MAC, jsonData.data.appKey);
+
+                            const dbUser = dbDevices[0].user;
+
+                            console.log('Notificar a....', dbUser.notificationId);
+
+                            const notification = new Notification(REFILLED_NOTIFICATION(dbUser.notificationId, dbDevices[0].name));
+                            const notificationsService = new NotificationsService();
+                            notificationsService.notify(notification);
+
+                            //TODO: Grabar en BD
+                        }
+                    }
+
                 }
             }
             console.log("VERIFICACION REALIZADA");

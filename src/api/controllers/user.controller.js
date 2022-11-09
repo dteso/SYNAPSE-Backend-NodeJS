@@ -85,14 +85,7 @@ class UserController extends BaseController {
       ///////////////////////////////////////
 
       //sendCustomMail('digitalislandsp@gmail.com', dbUser.email, 'Registro completado!!!', 'Tu registro en el sistema se ha completado correctamente');
-      console.log('Notificar a....', dbUser.notificationId);
-
-      const notification = new Notification(WELCOME_NOTIFICATION(dbUser.notificationId));
-
-      console.log('NOTIFICATION', JSON.stringify(notification));
-      const notificationsService = new NotificationsService();
-      console.log('NOTIFICANDO...');
-      notificationsService.notify(notification);
+      this.notifyToUser(dbUser);
 
       res.status(200).json({
         ok: true,
@@ -194,6 +187,14 @@ class UserController extends BaseController {
       });
     }
 
+  }
+
+  notifyToUser(dbUser) {
+    console.log('Notificar a....', dbUser.notificationId);
+
+    const notification = new Notification(WELCOME_NOTIFICATION(dbUser.notificationId));
+    const notificationsService = new NotificationsService();
+    notificationsService.notify(notification);
   }
 }
 
