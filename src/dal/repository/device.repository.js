@@ -1,12 +1,14 @@
 
 const Device = require('../models/device.model');
+const { BaseRepository } = require('./base.repository');
 
-class DeviceRepository {
+class DeviceRepository extends BaseRepository {
 
     async create(device) {
-
         try {
-            return await device.save();
+            const dev = await device.save();
+            console.log(dev);
+            return await Device.findById(dev._id).populate('customer', '_id name location');
         } catch (e) {
             throw Error(`">>> DeviceRepository:create() --> " ${e}`);
         }
@@ -33,6 +35,36 @@ class DeviceRepository {
     async getDeviceByMacAndAppKey(MAC, appKey) {
         try {
             return await Device.find({ MAC, appKey }).populate('user', '_id name email google role notificationId').populate('customer', '_id name location');
+        } catch (e) {
+            throw Error(`">>> BaseRepository:getByUser(/userId) --> " ${e}`);
+        }
+    }
+
+    async updateName(MAC, appKey, name) {
+        try {
+            const deviceDb = await Device.findOne({ MAC, appKey }).populate('user', '_id name email google role notificationId').populate('customer', '_id name location');
+            deviceDb.name = name;
+            return await Device.updateOne(deviceDb);
+        } catch (e) {
+            throw Error(`">>> BaseRepository:getByUser(/userId) --> " ${e}`);
+        }
+    }
+
+    async updateDeviceStatus(MAC, appKey, minLevelReached, name) {
+        try {
+            const deviceDb = await Device.findOne({ MAC, appKey }).populate('user', '_id name email google role notificationId').populate('customer', '_id name location');
+
+            if (!deviceDb) return;
+
+            deviceDb.lastEvent = new Date();
+
+            if (minLevelReached === "NO") {
+                deviceDb.lastRefill = new Date();
+            }
+
+            //deviceDb.minLevelReached = minLevelReached;
+            deviceDb.name = name;
+            return await Device.findOneAndUpdate({ MAC, appKey }, deviceDb, { new: true, useFindAndModify: false });
         } catch (e) {
             throw Error(`">>> BaseRepository:getByUser(/userId) --> " ${e}`);
         }

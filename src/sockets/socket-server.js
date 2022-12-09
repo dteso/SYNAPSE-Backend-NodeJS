@@ -18,13 +18,13 @@ startSockets = (server) => {
 
   wss.on('connection', function connection(ws, req) {
 
-    ws.on('message', function message(data) {
+    ws.on('message', async function message(data) {
       console.log('----------------------------------------------------------');
       console.log('--- RECEIVED %s FROM : %s', req.socket.remoteAddress, data);
       console.log('----------------------------------------------------------');
       const jsonData = JSON.parse(data);
-      socketService.validateConnection(jsonData, ws);
-      if (((jsonData.event === 'MESSAGE' || jsonData.event === 'CONNECTION') && jsonData.data.appKey) || jsonData.event === 'USER_COMMAND') {
+      const isValid = await socketService.validateConnection(jsonData, ws);
+      if (isValid && ((jsonData.event === 'MESSAGE' || jsonData.event === 'CONNECTION') && jsonData.data.appKey) || jsonData.event === 'USER_COMMAND') {
         socketService.broadcastByAppKey(jsonData, ws, `${data}`);
       }
     });

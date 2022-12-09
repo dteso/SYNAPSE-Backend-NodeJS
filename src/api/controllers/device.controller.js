@@ -28,7 +28,8 @@ class DeviceController extends BaseController {
     async getDeviceById(req, res) {
         try {
             const deviceService = new DeviceService();
-            const dbDevice = await deviceService.getDeviceById(req, res);
+            const id = req.params.is;
+            const dbDevice = await deviceService.getDeviceById(id);
 
             res.status(200).json({
                 ok: true,
@@ -70,6 +71,24 @@ class DeviceController extends BaseController {
             res.status(200).json({
                 ok: true,
                 msg: `Devices OBTAINED sucessfully`,
+                dbDevices
+            });
+        } catch (error) {
+            res.status(500).json({
+                ok: false,
+                error
+            });
+        }
+    }
+
+
+    async updateName(req, res) {
+        try {
+            const deviceService = new DeviceService();
+            const dbDevices = await deviceService.updateDeviceName(req, res);
+            res.status(200).json({
+                ok: true,
+                msg: `Device NAME UPDATED sucessfully`,
                 dbDevices
             });
         } catch (error) {

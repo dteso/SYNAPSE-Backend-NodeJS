@@ -1,34 +1,23 @@
 const { response } = require('express');
-const bcrypt = require('bcryptjs');
 const User = require('../../dal/models/user.model');
-const { generateJWT } = require('../../services/helpers/jwt');
 const { BaseController } = require('./base.controller');
-const { sendCustomMail } = require('./../../services/helpers/mail');
-const { generateApiKey } = require('generate-api-key');
-const { NotificationsService } = require('../../services/notifications.service');
-const { WELCOME_NOTIFICATION } = require('../../services/helpers/notifications.const');
-const Notification = require('../../dal/models/notification.model');
+const { UserService } = require('../../services/user.service');
 
-const getGeneratedAppKey = () => {
-  return generateApiKey({
-    method: 'string',
-    pool: '0123456789abcdef',
-    length: 16
-  }); // ⇨ 'QFLSGIDLOUAELQZTQXMHQNJ'
-}
+
 class UserController extends BaseController {
 
   constructor(model) {
     super(model);
   }
 
+  userService = new UserService();
 
   ///////////////////////////////////////
   /*                 GET               */
   ///////////////////////////////////////
   getUsers = async (req, res) => {
     console.log("USER GET REQUEST");
-    const users = await User.find({}, 'nombre email role google'); //Sería como establecer su propio Dto sin necesidad de definirlo. Nos seguiría saliendo el _id y la __v. Esto se soluciona en el user.model.js
+    const users = await this.userService.getAllusers(); //Sería como establecer su propio Dto sin necesidad de definirlo. Nos seguiría saliendo el _id y la __v. Esto se soluciona en el user.model.js
     res.json({
       ok: true,
       msg: `Users were LOADED sucessfully`,
@@ -43,59 +32,25 @@ class UserController extends BaseController {
   /*                 POST                 */
   //////////////////////////////////////////
   createUser = async (req, res = response) => {
+
     console.log("USER POST REQUEST");
-    const { email, password } = req.body;
+    const { email } = req.body;
     try {
-      const existeEmail = await User.findOne({ email });
+      const existeEmail = await this.userService.getUserByEmail(email);
+
       if (existeEmail) {
         return res.status(400).json({
           ok: false,
           msg: 'Email is already registered in system'
         });
       }
-      const user = new User(req.body);
-
-      if (req.body.appKey) {
-        user.appKey = req.body.appKey;
-      } else {
-        user.appKey = getGeneratedAppKey();
-      }
-
-      if (req.body.notificationId) {
-        user.notificationId = req.body.notificationId;
-      } else {
-        user.notificationId = "";
-      }
-
-      /************************************* 
-       *       Password encriptation
-      *************************************/
-      const salt = bcrypt.genSaltSync();
-      user.password = bcrypt.hashSync(password, salt);
-      ///////////////////////////////////////
-
-
-      //Save user
-      let dbUser = await user.save();
-
-      /************************************* 
-       *          JWT Generation
-      *************************************/
-      const token = await generateJWT(dbUser.id);
-      ///////////////////////////////////////
-
-      //sendCustomMail('digitalislandsp@gmail.com', dbUser.email, 'Registro completado!!!', 'Tu registro en el sistema se ha completado correctamente');
-      this.notifyToUser(dbUser);
-
+      const { user, token } = await this.userService.createUser(req, res);
       res.status(200).json({
         ok: true,
         msg: `User ${user.name} CREATED sucessfully`,
         user,
         token
       });
-
-
-
     } catch (error) {
       console.log(error);
       res.status(500).json({
@@ -187,14 +142,6 @@ class UserController extends BaseController {
       });
     }
 
-  }
-
-  notifyToUser(dbUser) {
-    console.log('Notificar a....', dbUser.notificationId);
-
-    const notification = new Notification(WELCOME_NOTIFICATION(dbUser.notificationId));
-    const notificationsService = new NotificationsService();
-    notificationsService.notify(notification);
   }
 }
 

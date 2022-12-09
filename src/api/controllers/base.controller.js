@@ -1,6 +1,6 @@
 const { response } = require('express');
 const User = require('../../dal/models/user.model');
-const {BaseService} =  require('../../services/base.service');
+const { BaseService } = require('../../services/base.service');
 
 class BaseController {
 
@@ -17,17 +17,17 @@ class BaseController {
   ///////////////////////////////////////
   /*                 GET               */
   ///////////////////////////////////////
-  async getEntities  (req, res) {
+  async getEntities(req, res) {
     console.log("GET REQUEST");
     const baseService = new BaseService(this._model);
-    try{
+    try {
       const result = await baseService.getEntities(req, res);
       res.json({
         ok: true,
         msg: `All ${this._model.modelName}s loaded`,
         result
       });
-    }catch(e){
+    } catch (e) {
       throw Error(`>>> BaseController: get() ---> Error getting entities ${e}`);
     }
 
@@ -108,7 +108,7 @@ class BaseController {
       return res.json({
         ok: true,
         msg: `${this._model.modelName} uid = ${uid} DELETED sucessfully`,
-        user: dbEntity
+        entity: dbEntity
       });
     } catch (error) {
       console.log(error);

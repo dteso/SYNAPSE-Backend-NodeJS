@@ -17,8 +17,9 @@ router.post('/', validateJWT, controller.create);
 router.post('/register', validateJWT, controller.registerDevice);
 
 router.put('/', validateJWT, controller.update);
+router.patch('/name', validateJWT, controller.updateName);
 
-router.delete('/', validateJWT, controller.delete);
+router.delete('/:id', validateJWT, controller.delete);
 
 
 module.exports = router;

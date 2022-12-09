@@ -10,8 +10,9 @@ const validateJWT = (req, res, next) => {
   }
 
   try {
-    const { uid } = jwt.verify(token, process.env.JWT_SECRET);
+    const { uid, appKey } = jwt.verify(token, process.env.JWT_SECRET);
     req.uid = uid; //Se inyecta en la petición que será la que finalmente llegará al controlador con el req modificado
+    req.appKey = appKey; // Estos los introdujimos al generar el jwt generateJwt()
     next();
   } catch (err) {
     return res.status(401).json({

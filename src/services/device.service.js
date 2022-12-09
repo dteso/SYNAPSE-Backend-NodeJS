@@ -21,9 +21,8 @@ class DeviceService extends BaseService {
         }
     }
 
-    async getDeviceById(req, res) {
+    async getDeviceById(id) {
         try {
-            let id = req.params.id;
             return await this.deviceRepository.getById(id);
         } catch (e) {
             throw Error(`>>> DeviceService: getDeviceById() -> Error getting device: + ${e}`);
@@ -55,6 +54,23 @@ class DeviceService extends BaseService {
             return await this.deviceRepository.getDeviceByMacAndAppKey(MAC, appKey);
         } catch (e) {
             throw Error(`>>> DeviceService: getDeviceByLoggedUser() -> Error getting devices: + ${e}`);
+        }
+    }
+
+
+    async updateDeviceName(req, res) {
+        try {
+            return await this.deviceRepository.updateName(req.body.MAC, req.body.appKey, req.body.name);
+        } catch (e) {
+            throw Error(`>>> DeviceService: updateDeviceName() -> Error updating device name: + ${e}`);
+        }
+    }
+
+    async updateDeviceStatus(MAC, appKey, minLevelReached, name) {
+        try {
+            return await this.deviceRepository.updateDeviceStatus(MAC, appKey, minLevelReached, name);
+        } catch (e) {
+            throw Error(`>>> DeviceService: updateDeviceStatus() -> Error updating device status: + ${e}`);
         }
     }
 }

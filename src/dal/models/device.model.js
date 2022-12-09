@@ -51,6 +51,12 @@ const DeviceSchema = Schema({
   customer: { type: Schema.Types.ObjectId, ref: 'Customer', required: false },
   appKey: {
     type: String
+  },
+  lastEvent: {
+    type: Date
+  },
+  lastRefill: {
+    type: Date
   }
 });
 
