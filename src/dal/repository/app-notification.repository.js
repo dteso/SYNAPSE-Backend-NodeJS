@@ -38,6 +38,27 @@ class AppNotificacionRepository extends BaseRepository {
         }
     }
 
+
+    async findMessagesByIdsAndUpdate(idList, appKey) {
+        try {
+            const notificationsByAppKey = await AppNotification.findOne({ appKey });
+            const messagesToUpdate = this.getMessagesToSetAsRead(notificationsByAppKey, idList);
+
+            if (messagesToUpdate.length) {
+                messagesToUpdate.forEach(element => {
+                    element.read = true
+                });
+            }
+            return await AppNotification.findOneAndUpdate({ appKey }, notificationsByAppKey, { new: true, useFindAndModify: false });
+        } catch (e) {
+            throw Error(`">>> findMessageByIdAndUpdate() --> " ${e}`);
+        }
+    }
+
+    getMessagesToSetAsRead(notificationsByAppKey, idList) {
+        return notificationsByAppKey.messages.filter(message => idList.findIndex(id => id == message._id) > -1);
+    }
+
     async create(appNotification) {
         const appKey = appNotification.appKey;
         const head = appNotification.head;

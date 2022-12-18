@@ -76,6 +76,24 @@ class NotificationsController {
         }
     }
 
+    setListToIsRead = async (req, res = response) => {
+        console.log(req.body);
+        const notificationsService = new NotificationsService();
+        try {
+            const result = await notificationsService.setListToIsRead(req);
+            res.status(200).json({
+                ok: true,
+                response: result
+            })
+        } catch (err) {
+            console.log(err);
+            res.status(500).json({
+                ok: false,
+                error: err
+            })
+        }
+    }
+
 
 }
 

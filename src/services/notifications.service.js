@@ -24,7 +24,7 @@ class NotificationsService extends BaseService {
         try {
             return await appNotificationRepository.create(req.body);
         } catch (e) {
-            throw Error(`>>> DeviceService: createNotification() -> Error CREATING NOTIFICATION IN DB: + ${e}`);
+            throw Error(`>>> NotificationsService: createNotification() -> Error CREATING NOTIFICATION IN DB: + ${e}`);
         }
     }
 
@@ -35,7 +35,7 @@ class NotificationsService extends BaseService {
             await appNotificationRepository.create(createDto);
             return await this.notify(notification);
         } catch (e) {
-            throw Error(`>>> DeviceService: createNotification() -> Error CREATING NOTIFICATION IN DB: + ${e}`);
+            throw Error(`>>> NotificationsService: createAndNotify() -> Error CREATING NOTIFICATION IN DB: + ${e}`);
         }
     }
 
@@ -45,7 +45,7 @@ class NotificationsService extends BaseService {
         try {
             return await appNotificationRepository.findByAppKey(appKey);
         } catch (e) {
-            throw Error(`>>> DeviceService: getNotificationsByAppKey() -> Error GETTING NOTIFICATIONS BY APPKEY: + ${e}`);
+            throw Error(`>>> NotificationsService: getNotificationsByAppKey() -> Error GETTING NOTIFICATIONS BY APPKEY: + ${e}`);
         }
     }
 
@@ -56,9 +56,21 @@ class NotificationsService extends BaseService {
         try {
             return await appNotificationRepository.findMessageByIdAndUpdate(messageId, appKey);
         } catch (e) {
-            throw Error(`>>> DeviceService: getNotificationsByAppKey() -> Error GETTING NOTIFICATIONS BY APPKEY: + ${e}`);
+            throw Error(`>>> NotificationsService: setToIsRead() -> Error GETTING NOTIFICATIONS BY APPKEY: + ${e}`);
         }
     }
+
+    async setListToIsRead(req) {
+        const messagesIdList = req.body.messagesIdList;
+        const appKey = req.appKey;
+        const appNotificationRepository = new AppNotificacionRepository();
+        try {
+            return await appNotificationRepository.findMessagesByIdsAndUpdate(messagesIdList, appKey);
+        } catch (e) {
+            throw Error(`>>> NotificationsService: setListToIsRead() -> Error SETTING NOTIFICATIONS TO READ TRUE: + ${e}`);
+        }
+    }
+
 
 
 }
