@@ -81,6 +81,24 @@ class DeviceController extends BaseController {
         }
     }
 
+    async getDevicesByCustomer(req, res) {
+        try {
+            const deviceService = new DeviceService();
+            const customerId = req.params.customerId;
+            const dbDevices = await deviceService.getDevicesByCustomerId(customerId);
+            res.status(200).json({
+                ok: true,
+                msg: `Devices OBTAINED sucessfully`,
+                dbDevices
+            });
+        } catch (error) {
+            res.status(500).json({
+                ok: false,
+                error
+            });
+        }
+    }
+
 
     async updateName(req, res) {
         try {

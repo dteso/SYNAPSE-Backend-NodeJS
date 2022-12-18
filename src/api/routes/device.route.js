@@ -12,6 +12,7 @@ router.get('/', validateJWT, controller.getEntities);
 router.get('/my-user', validateJWT, controller.getDeviceByUserLogged);
 router.get('/user/:userId', validateJWT, controller.getDeviceByUserId);
 router.get('/:id', validateJWT, controller.getDeviceById);
+router.get('/customer/:customerId', validateJWT, controller.getDevicesByCustomer);
 
 router.post('/', validateJWT, controller.create);
 router.post('/register', validateJWT, controller.registerDevice);

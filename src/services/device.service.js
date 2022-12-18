@@ -57,6 +57,14 @@ class DeviceService extends BaseService {
         }
     }
 
+    async getDevicesByCustomerId(customerId) {
+        try {
+            return await this.deviceRepository.getDevicesByCustomerId(customerId);
+        } catch (e) {
+            throw Error(`>>> DeviceService: getDeviceByLoggedUser() -> Error getting devices: + ${e}`);
+        }
+    }
+
 
     async updateDeviceName(req, res) {
         try {

@@ -40,6 +40,14 @@ class DeviceRepository extends BaseRepository {
         }
     }
 
+    async getDevicesByCustomerId(customerId) {
+        try {
+            return await Device.find({ customer: customerId }).populate('user', '_id name email google role notificationId').populate('customer', '_id name location');
+        } catch (e) {
+            throw Error(`">>> BaseRepository:getByUser(/userId) --> " ${e}`);
+        }
+    }
+
     async updateName(MAC, appKey, name) {
         try {
             const deviceDb = await Device.findOne({ MAC, appKey }).populate('user', '_id name email google role notificationId').populate('customer', '_id name location');
