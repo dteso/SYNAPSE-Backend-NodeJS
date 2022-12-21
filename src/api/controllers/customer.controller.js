@@ -41,6 +41,46 @@ class CustomerController extends BaseController {
             });
         }
     }
+
+    async getCustomerDetailsWithDevices(req, res) {
+        try {
+            const customerService = new CustomerService();
+            const response = await customerService.getCustomerDetailsWithDevices(req, res);
+            res.status(200).json({
+                ok: true,
+                msg: `Customer OBTAINED sucessfully by customerId`,
+                customer: response.customers[0],
+                devices: response.devicesByCustomer
+            });
+        } catch (error) {
+            res.status(500).json({
+                ok: false,
+                error
+            });
+        }
+    }
+
+    async deleteCustomerById(req, res) {
+        try {
+            const customerService = new CustomerService();
+            const response = await customerService.deleteCustomerById(req, res);
+            console.log(response);
+            res.status(200).json({
+                ok: true,
+                msg: `Customer DELETED sucessfully by customerId`,
+                response
+            });
+        } catch (error) {
+            res.status(500).json({
+                ok: false,
+                error
+            });
+        }
+    }
+
+
+
+
 }
 
 module.exports = {

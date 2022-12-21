@@ -9,6 +9,7 @@ const router = Router();
 
 router.get('/my-user', validateJWT, controller.getCustomersByUserLogged);
 router.get('/', validateJWT, controller.getEntities);
+router.get('/id/:id', validateJWT, controller.getCustomerDetailsWithDevices);
 
 //router.get('/:id', validateJWT, controller.getCustomerById);
 
@@ -18,6 +19,7 @@ router.post('/my-user', validateJWT, controller.registerCustomerByLoggeduser);
 router.put('/', validateJWT, controller.update);
 
 router.delete('/', validateJWT, controller.delete);
+router.delete('/id/:id', validateJWT, controller.deleteCustomerById);
 
 
 module.exports = router;
