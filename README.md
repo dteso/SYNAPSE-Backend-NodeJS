@@ -1,3 +1,5 @@
+Version alpha-0.0.1
+
 # GENERACIÓN DE SEEDERS MONGOOSE
 
 1. npm i mongoose-seed
