@@ -14,7 +14,7 @@ startSockets = (server) => {
 
   const WebSocketServer = require('ws').Server;
   const socketService = new SocketService();
-  const wss = new WebSocketServer({ port: (process.env.PORT || 5000) });
+  const wss = new WebSocketServer({ port: 5000 });
 
   wss.on('connection', function connection(ws, req) {
 
