@@ -16,7 +16,7 @@ var corsOptions = {
   // origin: 'http://localhost:4200', local serve
   // origin: 'http://localhost:3000', PRE
   origins: [
-    'https://digitalophy-beta.herokuapp.com',
+    'https://smsensorial-monitor.herokuapp.com',
     'http://92.56.96.192:4200',
     'http://192.168.1.41:3000',
     'http://192.168.1.41:4200',
@@ -53,7 +53,7 @@ app.use('/api/onesignal', require('./src/api/routes/notifications.route'));
 /* Mantener la navegación del usuario siempre en nuestro dominio */
 app.get('*', (req, res) => {
   // console.log(path.join(__dirname, 'shared', 'index.html'));
-  const index = path.join(__dirname, 'shared', 'index.html');
+  const index = path.join(__dirname, 'shared', '/client/build/index.html');
   res.sendFile(index);
 });
 
