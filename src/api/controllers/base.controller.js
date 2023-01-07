@@ -65,7 +65,7 @@ class BaseController {
     console.log("PUT REQUEST");
     const uid = req.params.id;
     try {
-      const dbEntity = await User.findById(uid);
+      const dbEntity = await this._model.findById(uid);
       if (!dbEntity) {
         console.log("Register NOT FOUND by Id");
         return res.status(404).json({
@@ -73,10 +73,11 @@ class BaseController {
           msg: `${this._model.modelName} NOT FOUND by uid = ${uid}`,
         });
       }
-      const updatedEntity = await this._model.findByIdAndUpdate(uid, { new: true }); //{new: true} hace que en el momento de la actualización devuelva el usuario nuevo y no el guardado hasta ahora
+      console.log("BODY:", req.body);
+      const updatedEntity = await this._model.findByIdAndUpdate(uid, req.body, { new: true, useFindAndModify: false }); //{new: true} hace que en el momento de la actualización devuelva el usuario nuevo y no el guardado hasta ahora
       res.json({
         ok: true,
-        user: updatedEntity,
+        entity: updatedEntity,
         msg: `${this._model.modelName} uid = ${uid} UPDATED sucessfully`,
       })
     } catch (error) {

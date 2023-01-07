@@ -16,7 +16,7 @@ router.get('/id/:id', validateJWT, controller.getCustomerDetailsWithDevices);
 router.post('/', validateJWT, controller.create);
 router.post('/my-user', validateJWT, controller.registerCustomerByLoggeduser);
 
-router.put('/', validateJWT, controller.update);
+router.put('/id/:id', validateJWT, controller.update);
 
 router.delete('/', validateJWT, controller.delete);
 router.delete('/id/:id', validateJWT, controller.deleteCustomerById);
