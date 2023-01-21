@@ -2,15 +2,16 @@ const { DeviceService } = require('../services/device.service');
 const { NotificationsService } = require('../services/notifications.service');
 const Notification = require('../dal/models/notification.model');
 const { MIN_LEVEL_REACHED_NOTIFICATION, REFILLED_NOTIFICATION } = require('../services/helpers/notifications.const');
+const deviceModel = require('../dal/models/device.model');
+let currentRooms = require('../services/storage.service');
 
+const { log, logInfo, logWarning, logSuccess, logDanger, logSuccessBg } = require('../services/helpers/logger')
 class SocketService {
 
-    currentRooms = [];
+    //currentRooms = [];
     deviceService = new DeviceService();
 
-    constructor() {
-        this.currentRooms = [];
-    }
+    constructor() { }
 
     /**
      * Retransmite un mensaje a todos los dispositivos conectados al server
@@ -18,7 +19,7 @@ class SocketService {
      * @param {*} wss 
      * @param {*} data 
      */
-    broadcast(wss, data) {
+    async broadcast(wss, data) {
         wss.clients?.forEach(function each(ws) {
             ws.send(data);
         });
@@ -28,10 +29,9 @@ class SocketService {
      * Retransmite una nueva conexión y muestra el número de clientes actuales
      * @param {*} wss 
      */
-    checkNewClient(wss) {
-        console.log("NEW CONNECTION - Usuarios conectados: " + wss.clients.size);
-        this.broadcast(`{"event": "USER_COMMAND", "data": "PENNY"}`);
-        console.log('-----------------');
+    async checkNewClient(wss) {
+        logInfo("NEW CONNECTION - Usuarios conectados: " + wss.clients.size);
+        //this.broadcast(`{"event": "USER_COMMAND", "data": "PENNY"}`); // TODO: Quitar
     }
 
 
@@ -41,62 +41,110 @@ class SocketService {
      * @param {*} jsonData 
      * @param {*} ws 
      */
-    async validateConnection(jsonData, ws) {
-        // console.log('JSON DATA: ', jsonData);
-        let isValid = false;
+    async manageConnection(jsonData, ws) {
 
-        console.log("···········································");
-        if (this.roomForDeviceNotExists(jsonData)) {
-            isValid = await this.createRommIfIsAuthorized(jsonData, ws);
-        } else {
-            let existentRoom = this.getExistentRoom(jsonData);
-            if (existentRoom !== undefined && jsonData.data.deviceType === 'APP') {
-                this.updateTargetRoomWithApp(existentRoom, jsonData, ws);
-                isValid = true;
-            } else if (existentRoom !== undefined && jsonData.data.deviceType === 'DEV') {
-                if (this.deviceNotIncludedIn(existentRoom, jsonData)) { // Comprobar si existe en BD por MAC y appKey
-                    isValid = await this.addDeviceIfAuthorized(jsonData, existentRoom, ws);
-                } else { // Ya está incluído
-                    await this.updateDeviceStatus(jsonData, existentRoom, ws);
+        try {
+            let isValid = false;
+
+            if (await this.roomForDeviceNotExists(jsonData)) {
+                isValid = await this.createRommIfIsAuthorized(jsonData, ws);
+            } else if (jsonData.event !== 'USER_COMMAND') {
+                let existentRoom = await this.getExistentRoom(jsonData);
+                if (await this.roomAlreadyExistsAndIsAppConnection(existentRoom, jsonData)) {
+                    await this.updateTargetRoomWithApp(existentRoom, jsonData, ws);
                     isValid = true;
+                } else if (this.roomAlreadyExistsAndIsDeviceConnection(existentRoom, jsonData) && jsonData.event !== 'USER_COMMAND') {
+                    if (await this.deviceNotIncludedIn(existentRoom, jsonData)) { // Comprobar si existe en BD por MAC y appKey
+                        isValid = await this.addDeviceIfAuthorized(jsonData, existentRoom, ws);
+                    } else { // Ya está incluído
+                        await this.updateDeviceStatus(jsonData, existentRoom, ws);
+                        isValid = true;
+                    }
                 }
+                logInfo("VERIFICACION REALIZADA PARA [" + jsonData.data.name + "] : " + jsonData.data.MAC + "");
+                if (currentRooms === undefined) {
+                    logDanger(`Current Rooms does nos exist. You are: ` + jsonData);
+                    return isValid;
+                }
+                // const displayRooms = JSON.parse(JSON.stringify(currentRooms));
+                // displayRooms.forEach(room => {
+                //     room.devices = room.devices.map(device => `${device.MAC} - ${device.name}`);
+                //     room.apps = room.apps.map(app => `${app.user}`);
+                // })
+                // logWarning("Current rooms: ", JSON.stringify(displayRooms, null, 2));
+                this.displayInitialRooms();
             }
-            console.log("VERIFICACION REALIZADA");
-            console.log("Current rooms: ", this.currentRooms);
-            console.log("···········································\n");
+            return isValid;
+        } catch (e) {
+            logDanger(`Current Rooms does nos exist. You are: ${JSON.stringify(jsonData)} - ERROR: ${e}`);
+            return false;
         }
-        return isValid;
+
     }
 
 
+    async roomAlreadyExistsAndIsDeviceConnection(existentRoom, jsonData) {
+        return existentRoom !== undefined && jsonData.data.deviceType === 'DEV' && jsonData.event === 'MESSAGE';
+    }
+
+    async roomAlreadyExistsAndIsAppConnection(existentRoom, jsonData) {
+        return existentRoom !== undefined && jsonData.data.deviceType === 'APP' && jsonData.event === 'CONNECTION';
+    }
+
     async updateDeviceStatus(jsonData, existentRoom, ws) {
-        console.log("Actualizando estado del dispositivo ", jsonData.data.MAC);
+        logInfo("Actualizando estado del dispositivo ", jsonData.data.MAC);
 
         const deviceByFilter = existentRoom.devices.filter(dev => dev.MAC === jsonData.data.MAC);
         const targetDevice = deviceByFilter[0]; // La MAC debe ser única sólo debe resultar uno del filtro
 
+        await this.updateDeviceWs(targetDevice, ws, jsonData);
+        await this.manageDeviceChanges(targetDevice, jsonData);
+        // Siempre que se reciba estado de un dispositivo, este se almacena en BD
+        await this.deviceService.updateDeviceStatus(jsonData.data.MAC, jsonData.data.appKey, jsonData.data.minLevelReached, jsonData.data.name);
+    }
+
+    /**
+     * Actualiza el websocket del objeto device
+     * @param {*} targetDevice 
+     * @param {*} ws 
+     * @param {*} jsonData 
+     */
+    async updateDeviceWs(targetDevice, ws, jsonData) {
         if (targetDevice !== null && targetDevice !== undefined) {
             targetDevice.ws = ws;
-            targetDevice.name = jsonData.data.name; // Por si se ha cambiado el nombre del dispositivo
+            targetDevice.name = jsonData.data.name;
+            targetDevice.mode = jsonData.data.mode;
         }
+    }
 
-        if (targetDevice.minLevelReached !== jsonData.data.minLevelReached) { // Si cambia
+    /**
+     * Gestiona los cambios a realizar y las acciones derivadas de ellos como puede ser notificar en determinadas condiciones
+     * @param {*} targetDevice 
+     * @param {*} jsonData 
+     */
+    async manageDeviceChanges(targetDevice, jsonData) {
+        console.log('Is first Load', targetDevice.firstLoad);
+        if (targetDevice.minLevelReached !== jsonData.data.minLevelReached && !targetDevice.firstLoad) { // Si cambia
             const dbDevices = await this.deviceService.getDeviceByMacAndAppKey(jsonData.data.MAC, jsonData.data.appKey);
 
-            const dbUser = dbDevices[0].user;
+            if (dbDevices[0]) {
+                const dbUser = dbDevices[0].user;
+                if (jsonData.data.minLevelReached !== "") {
+                    targetDevice.minLevelReached = jsonData.data.minLevelReached;
+                }
+                if (jsonData.data.minLevelReached === 'YES') {
+                    await this.processEvent(jsonData, MIN_LEVEL_REACHED_NOTIFICATION(dbUser.notificationId, dbDevices[0].name));
+                }
+                if (jsonData.data.minLevelReached === 'NO') {
+                    await this.processEvent(jsonData, REFILLED_NOTIFICATION(dbUser.notificationId, dbDevices[0].name));
+                }
+                logNotification('Notificar a....', dbUser.email);
+            }
+
+        } else {
+            targetDevice.firstLoad = false;
             targetDevice.minLevelReached = jsonData.data.minLevelReached;
-            console.log('Notificar a....', dbUser.notificationId);
-
-            if (jsonData.data.minLevelReached === 'YES') {
-                await this.processEvent(jsonData, MIN_LEVEL_REACHED_NOTIFICATION(dbUser.notificationId, dbDevices[0].name));
-            }
-            if (jsonData.data.minLevelReached === 'NO') {
-                await this.processEvent(jsonData, REFILLED_NOTIFICATION(dbUser.notificationId, dbDevices[0].name));
-            }
         }
-
-        // Siempre que se reciba estado de un dispositivo, este se almacena
-        await this.deviceService.updateDeviceStatus(jsonData.data.MAC, jsonData.data.appKey, jsonData.data.minLevelReached, jsonData.data.name);
     }
 
     /**
@@ -108,6 +156,12 @@ class SocketService {
     async processEvent(jsonData, notificationObj) {
         const notification = new Notification(notificationObj);
         const notificationsService = new NotificationsService();
+
+        const deviceMode = jsonData.data.mode;
+
+        if (deviceMode === 'Q') {
+            return;
+        }
         return await notificationsService.createAndNotify(jsonData.data.appKey, jsonData.data.MAC, notification);
     }
 
@@ -120,13 +174,11 @@ class SocketService {
      * @param {*} ws 
      */
     async addDeviceIfAuthorized(jsonData, existentRoom, ws) {
-        console.log("···········································");
-
         if (await this.isRegistered(jsonData)) {
-            console.log("IDENTIFICACIÓN CORRECTA: Autorizado");
-            this.addDeviceToExistentRoom(existentRoom, ws, jsonData);
+            logSuccess("IDENTIFICACIÓN CORRECTA: [" + jsonData.data.name + "] AUTORIZADO");
+            await this.addDeviceToExistentRoom(existentRoom, ws, jsonData);
         } else {
-            console.log("PELIGRO: DISPOSITIVO NO AUTORIZADO!!!");
+            logDanger("PELIGRO: DISPOSITIVO NO AUTORIZADO!!!");
             ws.close();
         }
     }
@@ -139,9 +191,9 @@ class SocketService {
      * @param {*} jsonData 
      * @param {*} ws 
      */
-    updateTargetRoomWithApp(existentRoom, jsonData, ws) {
+    async updateTargetRoomWithApp(existentRoom, jsonData, ws) {
         if (this.appNotIncludedIn(existentRoom, jsonData) && jsonData.data.appKey != undefined) {
-            this.addAppToExixtentRoom(existentRoom, ws, jsonData); // Si es otro usuario se considera una conexión distinta
+            await this.addAppToExixtentRoom(existentRoom, ws, jsonData); // Si es otro usuario se considera una conexión distinta
         } else {
             existentRoom.apps.filter(app => app.user === jsonData.data.user)[0].ws = ws;
         }
@@ -156,18 +208,18 @@ class SocketService {
      */
     async createRommIfIsAuthorized(jsonData, ws) {
         if (await this.isRegistered(jsonData)) {
-            console.log("IDENTIFICACIÓN CORRECTA: Autorizado. Se creará nueva sala");
-            this.createRoom(jsonData, ws);
+            logSuccess("IDENTIFICACIÓN CORRECTA: Autorizado. Se creará nueva sala");
+            await this.createRoom(jsonData, ws);
             return true;
         }
-        console.log("PELIGRO: DISPOSITIVO NO AUTORIZADO!!!. No se creará la sala.");
+        logDanger("PELIGRO: DISPOSITIVO NO AUTORIZADO!!!. No se creará la sala.");
         ws.close();
         return false;
     }
 
 
-    roomForDeviceNotExists(jsonData) {
-        return jsonData.data.appKey !== undefined && jsonData.data.appKey !== ' ' && this.currentRooms.filter(room => room.appKey === jsonData.data.appKey)[0] === undefined;
+    async roomForDeviceNotExists(jsonData) {
+        return jsonData.data.appKey !== undefined && jsonData.data.appKey !== '' && jsonData.data.appKey !== ' ' && !currentRooms.filter(room => room.appKey === jsonData.data.appKey).length;
     }
 
     /**
@@ -179,12 +231,11 @@ class SocketService {
      */
     async createRoom(jsonData, ws) {
         if (!await this.isRegistered(jsonData)) {
-            console.log("DISPOSITIVO NO REGISTRADO!!!!");
+            logDanger("DISPOSITIVO NO REGISTRADO!!!!");
             return;
         } else {
-            console.log("IDENTIFICACIÓN CORRECTA: Autorizado");
-
-            console.log("... CREATING ROOM ...");
+            logSuccess("IDENTIFICACIÓN CORRECTA: Autorizado");
+            logInfo("... CREATING ROOM ...");
             let newRoom = {
                 appKey: jsonData.data.appKey,
                 devices: [],
@@ -203,17 +254,19 @@ class SocketService {
                     deviceType: 'DEV',
                     MAC: jsonData.data.MAC,
                     minLevelReached: jsonData.data.minLevelReached,
-                    name: jsonData.data.name
+                    name: jsonData.data.name,
+                    isFirstLoad: true
                 });
             }
-
-            console.log("New room: ", newRoom);
-
-            this.currentRooms.push(newRoom);
-
-            console.log("VERIFICACION REALIZADA");
-            console.log("Current rooms: ", this.currentRooms);
-            console.log("···········································\n");
+            currentRooms.push(newRoom);
+            logInfo("New room: ", newRoom);
+            logInfo("VERIFICACION REALIZADA");
+            const displayRooms = JSON.parse(JSON.stringify(currentRooms));
+            displayRooms.forEach(room => {
+                room.devices = room.devices.map(device => `${device.MAC} - ${device.name}`);
+                room.apps = room.apps.map(app => `${app.user}`);
+            })
+            // logWarning("Current rooms: ", JSON.stringify(displayRooms, null, 2));
         }
     }
 
@@ -223,8 +276,8 @@ class SocketService {
      * @param {*} jsonData 
      * @returns 
      */
-    getExistentRoom(jsonData) {
-        return this.currentRooms.filter(room => room.appKey === jsonData.data.appKey)[0];
+    async getExistentRoom(jsonData) {
+        return currentRooms.filter(room => room.appKey === jsonData.data.appKey)[0];
     }
 
     /**
@@ -245,10 +298,8 @@ class SocketService {
      * @param {*} ws 
      * @param {*} jsonData 
      */
-    addAppToExixtentRoom(existentRoom, ws, jsonData) {
-        console.log("···········································");
-        console.log("... ADDING APP TO ROOM  ...", existentRoom.appKey);
-        console.log("···········································\n");
+    async addAppToExixtentRoom(existentRoom, ws, jsonData) {
+        logInfo("... ADDING APP TO ROOM  ...", existentRoom.appKey);
         existentRoom.apps.push(
             {
                 ws: ws,
@@ -265,9 +316,9 @@ class SocketService {
      * @param {*} jsonData 
      * @returns 
      */
-    deviceNotIncludedIn(existentRoom, jsonData) {
+    async deviceNotIncludedIn(existentRoom, jsonData) {
         const result = existentRoom.devices.filter(dev => dev.MAC === jsonData.data.MAC)[0] === undefined;
-        console.log('DeviceNotIncludedIn: ', result);
+        logInfo('Dispositivo [' + jsonData.data.MAC + '-' + jsonData.data.name + '] es autorizado: ', !result);
         return result;
     }
 
@@ -278,20 +329,19 @@ class SocketService {
      * @param {*} ws 
      * @param {*} jsonData 
      */
-    addDeviceToExistentRoom(existentRoom, ws, jsonData) {
-        console.log("···········································");
-        console.log("... ADDING DEVICES TO ROOM  ...", existentRoom.appKey);
-        console.log("···········································\n");
+    async addDeviceToExistentRoom(existentRoom, ws, jsonData) {
+        logInfo("... ADDING DEVICES TO ROOM  ...", existentRoom.appKey);
         existentRoom.devices.push(
             {
                 ws: ws,
                 deviceType: "DEV",
                 MAC: jsonData.data.MAC,
                 minLevelReached: jsonData.data.minLevelReached,
-                name: jsonData.data.name
+                name: jsonData.data.name,
+                mode: jsonData.data.mode
             }
         );
-
+        this.broadcastByAppKey(jsonData);
     }
 
     /**
@@ -301,17 +351,10 @@ class SocketService {
      */
     logTargets(roomToBroadcast) {
         console.log("···········································");
-        console.log("Room to bradcast: ", roomToBroadcast.appKey);
-        console.log('devices: [');
-        roomToBroadcast.devices.forEach(device => {
-            console.log(`{MAC: ${device.MAC}, minLevelReached: ${device.minLevelReached}, name: ${device.name}},`);
-        });
-        console.log(']');
-        console.log('apps: [');
+        logWarning("Room to bradcast: ", roomToBroadcast.appKey);
         roomToBroadcast.apps.forEach(app => {
-            console.log(`{user: ${app.user}},`);
+            logSuccess(`${app.user}`);
         });
-        console.log(']');
         console.log("···········································\n");
     }
 
@@ -321,24 +364,29 @@ class SocketService {
      * @param {*} ws 
      * @param {*} data 
      */
-    broadcastByAppKey(jsonData, ws, data) {
-        const roomToBroadcast = this.currentRooms.filter(client => client.appKey === jsonData.data.appKey)[0];
+    async broadcastByAppKey(jsonData, ws, data) {
+        const roomToBroadcast = currentRooms.filter(client => client.appKey === jsonData.data.appKey)[0];
 
-        if (roomToBroadcast !== undefined) {
+        if (jsonData.event === 'USER_COMMAND' && !jsonData.target) {
+            if (roomToBroadcast !== undefined) {
+                this.logTargets(roomToBroadcast);
 
-            this.logTargets(roomToBroadcast);
+                roomToBroadcast.devices.forEach(device => {
+                    if (device.ws !== null && device.ws !== undefined) {
+                        device.ws.send(data);
+                        logSuccess("Message sent to: ", device.name);
+                    } else {
+                        logWarning("Not WebSocket assigned yet to: ", device.name);
+                    }
 
-            /* Si queremos notificar también a los dispositivos */
-            // roomToBroadcast.devices?.forEach(function each(device) {
-            //   device.ws.send(data);
-            // });
-
-            roomToBroadcast.devices.forEach(device => {
-                device.ws.send(data);
-                console.log("mensaje enviado a :", device.name);
-            });
-
-            this.broacastToOwnerApp(roomToBroadcast, data);
+                });
+                await this.broacastToOwnerApp(roomToBroadcast, data);
+            }
+        } else {
+            if (roomToBroadcast !== undefined)
+                await this.broacastToOwnerApp(roomToBroadcast, data);
+            // Implementar lógica para atacara a un dispositivo 'target' que se incluya en el jsonData
+            // Si no se incluye se envía a todos los dispositivos de una misma appKey
         }
     }
 
@@ -347,13 +395,19 @@ class SocketService {
      * @param {*} roomToBroadcast 
      * @param {*} data 
      */
-    broacastToOwnerApp(roomToBroadcast, data) {
+    async broacastToOwnerApp(roomToBroadcast, event) {
         roomToBroadcast.apps?.forEach(app => {
-            console.log("···········································");
-            console.log("Sending message to user <" + app.user + ">");
-            console.log("···········································\n");
-            app.ws.send(data);
-
+            try {
+                const eventObj = JSON.parse(event);
+                if (eventObj.data && eventObj.data.name) {
+                    logSendBg("Sending message from [" + eventObj.data.name + "] to user <" + app.user + ">");
+                } else {
+                    logSendBg("Sending message to user <" + app.user + ">");
+                }
+                app.ws.send(event);
+            } catch (e) {
+                logDanger(`No se ha podido parsear el evento: ${event}`);
+            }
         });
     }
 
@@ -363,22 +417,57 @@ class SocketService {
      * @returns 
      */
     async isRegistered(jsonData) {
-
         if (jsonData.data.deviceType === 'DEV') {
             const dbDevices = await this.deviceService.getDeviceByMacAndAppKey(jsonData.data.MAC, jsonData.data.appKey);
-
-            console.log("···········································");
-            console.log(`Dispositivo ${jsonData.data.name || jsonData.data.user} : ESTADO REGISTRO ::::> `, dbDevices !== null && dbDevices !== undefined && dbDevices.length > 0 ? 'OK' : 'KO');
-            console.log("···········································\n");
-
+            logWarning(`Dispositivo ${jsonData.data.name || jsonData.data.user} : ESTADO REGISTRO ::::> `, dbDevices !== null && dbDevices !== undefined && dbDevices.length > 0 ? 'OK' : 'KO');
             return dbDevices !== null && dbDevices !== undefined && dbDevices.length > 0;
         } else {
             return true; // TODO: Hace comprobación que el usuario aportado se encuentre en BD
         }
-
     }
 
 
+    async buildInitialRooms() {
+        let roomsBuiltFromDb = [];
+
+        logInfo('Building rooms structure...');
+        const deviceService = new DeviceService(deviceModel);
+        const devices = await deviceService.getEntities();
+
+        let differentAppKeys = new Set(devices.map(entity => entity.appKey));
+        currentRooms = roomsBuiltFromDb;
+        differentAppKeys.forEach(appKey => {
+            const devicesByThisRoomInDb = devices.filter(device => device.appKey === appKey);
+
+            let devicesBySocketRoom = [];
+            devicesByThisRoomInDb.forEach(device => {
+                devicesBySocketRoom.push({
+                    deviceType: "DEV",
+                    MAC: device.MAC,
+                    minLevelReached: device.minLevelReached,
+                    name: device.name,
+                    firstLoad: true
+                });
+            });
+
+            roomsBuiltFromDb.push({
+                appKey,
+                devices: devicesBySocketRoom,
+                apps: []
+            });
+        });
+        this.displayInitialRooms();
+        return roomsBuiltFromDb;
+    }
+
+    displayInitialRooms() {
+        const displayRooms = JSON.parse(JSON.stringify(currentRooms));
+        displayRooms.forEach(room => {
+            room.devices = room.devices.map(device => `${device.MAC} - ${device.name}`);
+            room.apps = room.apps.map(app => `${app.user}`);
+        });
+        logWarning('Initial rooms:', JSON.stringify(displayRooms, null, 2));
+    }
 }
 
 module.exports = {

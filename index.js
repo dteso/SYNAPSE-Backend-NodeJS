@@ -49,6 +49,7 @@ app.use('/api/upload', require('./src/api/routes/file.route'));
 app.use('/api/devices', require('./src/api/routes/device.route'));
 app.use('/api/customers', require('./src/api/routes/customer.route'));
 app.use('/api/onesignal', require('./src/api/routes/notifications.route'));
+app.use('/api/sockets', require('./src/api/routes/sockets.route'));
 
 /* Mantener la navegación del usuario siempre en nuestro dominio */
 app.get('*', (req, res) => {
@@ -59,6 +60,6 @@ app.get('*', (req, res) => {
 
 let server = app.listen(process.env.PORT, () => {
   console.log(`Servidor corriendo en el puerto ${process.env.PORT}`);
+  startSockets(server);
 });
 
-startSockets(server);

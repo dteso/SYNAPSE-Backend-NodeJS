@@ -72,7 +72,7 @@ class AppNotificacionRepository extends BaseRepository {
             const deviceService = new DeviceService();
             const deviceDb = await deviceService.getDeviceByMacAndAppKey(MAC, appKey);
 
-            const message = { head, content, device: deviceDb[0], timestamp: new Date(), read: false };
+            const message = { head, content, device: deviceDb[0], timestamp: new Date(), read: false, customer: deviceDb[0].customer };
 
             if (notificationsByAppKey) {
                 notificationsByAppKey.messages.push(message);

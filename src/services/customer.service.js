@@ -20,7 +20,6 @@ class CustomerService extends BaseService {
     async getCustomerByLoggedUser(req, res) {
         try {
             let userId = req.uid;
-            console.log(userId);
             return await this.customerRepository.getCustomersByUserId(userId);
         } catch (e) {
             throw Error(`>>> CustomerService: getCustomerByLoggedUser() -> Error getting Customers: + ${e}`);
@@ -31,7 +30,6 @@ class CustomerService extends BaseService {
     async deleteCustomerById(req, res) {
         try {
             let customerId = req.params.id;
-            console.log(customerId);
             return await this.customerRepository.deleteCustomerById(customerId, res);
         } catch (e) {
             throw Error(`>>> CustomerService: deleteCustomerById(${id}) -> Error deleting Customer: + ${e}`);
@@ -42,8 +40,6 @@ class CustomerService extends BaseService {
     async getCustomerDetailsWithDevices(req, res) {
         try {
             let customerId = req.params.id;
-            console.log(customerId);
-
             const deviceService = new DeviceService();
             const devicesByCustomer = await deviceService.getDevicesByCustomerId(customerId);
             console.log('Devices by cusotmer', devicesByCustomer);

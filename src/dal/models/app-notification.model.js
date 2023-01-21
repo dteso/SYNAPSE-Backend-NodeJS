@@ -23,6 +23,9 @@ const AppNotificationSchema = Schema({
         },
         device: {
             type: Schema.Types.ObjectId, ref: 'Device', required: false,
+        },
+        customer: {
+            type: Schema.Types.ObjectId, ref: 'Customer', required: false,
         }
     }]
 });
