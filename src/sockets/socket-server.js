@@ -20,16 +20,21 @@ startSockets = async (server) => {
 
   const WebSocketServer = require('ws').Server;
   const wss = new WebSocketServer({ port: process.env.WS_PORT });
-  logWarning("WS_RUNNING] Sockets Server corriendo en el puerto " + process.env.WS_PORT)
+  logSuccess("[WS_RUNNING] Sockets Server corriendo en el puerto " + process.env.WS_PORT)
 
   wss.on('connection', function connection(ws, req) {
 
     ws.on('message', async function message(data) {
-      const jsonData = JSON.parse(data);
-      logSuccessBg('[WS_MSG_RECEIVED] FROM : [' + jsonData.data.name + ']=>' + JSON.stringify(jsonData, null, 2));
-      const isValid = await socketService.manageConnection(jsonData, ws);
-      if (isValid && ((jsonData.event === 'MESSAGE' || jsonData.event === 'CONNECTION') && jsonData.data.appKey) || jsonData.event === 'USER_COMMAND') {
-        socketService.broadcastByAppKey(jsonData, ws, `${data}`);
+      try {
+        const jsonData = JSON.parse(data);
+        logSuccessBg('[WS_MSG_RECEIVED] FROM : [' + jsonData.data.name + ']=>' + JSON.stringify(jsonData, null, 2));
+        const isValid = await socketService.manageConnection(jsonData, ws);
+
+        if (isValid && ((jsonData.event === 'MESSAGE' || jsonData.event === 'CONNECTION') && jsonData.data.appKey) || jsonData.event === 'USER_COMMAND' || jsonData.event === 'REQUEST' || jsonData.event === 'COMMAND_RESPONSE') {
+          socketService.broadcastByAppKey(jsonData, ws, `${data}`);
+        }
+      } catch (error) {
+        logDanger("[WS_INTERNAL]: ERRROR MANAGGING CONNECTION -> " + error);
       }
     });
 

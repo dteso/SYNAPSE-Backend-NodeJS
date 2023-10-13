@@ -50,6 +50,7 @@ app.use('/api/devices', require('./src/api/routes/device.route'));
 app.use('/api/customers', require('./src/api/routes/customer.route'));
 app.use('/api/onesignal', require('./src/api/routes/notifications.route'));
 app.use('/api/sockets', require('./src/api/routes/sockets.route'));
+app.use('/api/infrared', require('./src/api/routes/ínfrared-data.route'));
 
 /* Mantener la navegación del usuario siempre en nuestro dominio */
 app.get('*', (req, res) => {

@@ -29,7 +29,7 @@ class DeviceController extends BaseController {
     async getDeviceById(req, res) {
         try {
             const deviceService = new DeviceService();
-            const id = req.params.is;
+            const id = req.params.id;
             const dbDevice = await deviceService.getDeviceById(id);
 
             res.status(200).json({
@@ -132,7 +132,7 @@ class DeviceController extends BaseController {
                 });
             }
             await this._model.findByIdAndDelete(uid);
-            await sockets.buildInitialRooms();
+            await sockets.deleteDeviceFromRoom(dbEntity.MAC, dbEntity.appKey);
             return res.json({
                 ok: true,
                 msg: `${this._model.modelName} uid = ${uid} DELETED sucessfully`,

@@ -1,11 +1,13 @@
 const { DeviceService } = require('../services/device.service');
 const { NotificationsService } = require('../services/notifications.service');
+const { InfraredDataService } = require('../services/infrared-data.service');
 const Notification = require('../dal/models/notification.model');
 const { MIN_LEVEL_REACHED_NOTIFICATION, REFILLED_NOTIFICATION } = require('../services/helpers/notifications.const');
 const deviceModel = require('../dal/models/device.model');
+const infraredData = require('../dal/models/infrared-data.model');
 let currentRooms = require('../services/storage.service');
 
-const { log, logInfo, logWarning, logSuccess, logDanger, logSuccessBg } = require('../services/helpers/logger')
+const { logInfo, logWarning, logSuccess, logDanger, logNotification } = require('../services/helpers/logger')
 class SocketService {
 
     //currentRooms = [];
@@ -57,7 +59,22 @@ class SocketService {
                     if (await this.deviceNotIncludedIn(existentRoom, jsonData)) { // Comprobar si existe en BD por MAC y appKey
                         isValid = await this.addDeviceIfAuthorized(jsonData, existentRoom, ws);
                     } else { // Ya está incluído
-                        await this.updateDeviceStatus(jsonData, existentRoom, ws);
+                        if (jsonData.event == 'REQUEST') {
+                            if (jsonData.data.irData !== null && jsonData.data.irData !== undefined) {
+                                await this.saveIrData(jsonData.data);
+                                const deviceDataResponse = {
+                                    event: 'COMMAND_RESPONSE',
+                                    response: {
+                                        status: 'OK',
+                                        command: '#>LISTEN_IR'
+                                    },
+                                    data: jsonData.data.irData
+                                }
+                                this.broacastToOwnerApp(existentRoom, JSON.stringify(deviceDataResponse));
+                            }
+                        } else {
+                            await this.updateDeviceStatus(jsonData, existentRoom, ws);
+                        }
                         isValid = true;
                     }
                 }
@@ -66,20 +83,42 @@ class SocketService {
                     logDanger(`Current Rooms does nos exist. You are: ` + jsonData);
                     return isValid;
                 }
-                // const displayRooms = JSON.parse(JSON.stringify(currentRooms));
-                // displayRooms.forEach(room => {
-                //     room.devices = room.devices.map(device => `${device.MAC} - ${device.name}`);
-                //     room.apps = room.apps.map(app => `${app.user}`);
-                // })
-                // logWarning("Current rooms: ", JSON.stringify(displayRooms, null, 2));
-                this.displayInitialRooms();
+                // this.displayInitialRooms();
             }
             return isValid;
         } catch (e) {
             logDanger(`Current Rooms does nos exist. You are: ${JSON.stringify(jsonData)} - ERROR: ${e}`);
             return false;
         }
+    }
 
+    async saveIrData(data) {
+        const irService = new InfraredDataService(infraredData);
+        const irDataToSave = {
+            appKey: "",
+            code: "",
+            address: "",
+            protocol: "",
+            command: "",
+            bits: 0,
+            rawData: "",
+            key: "",
+            tv: "",
+            model: "",
+            color: ""
+        };
+        irDataToSave.appKey = data.appKey;
+        irDataToSave.code = data.irData.code;
+        irDataToSave.address = data.irData.address;
+        irDataToSave.protocol = data.irData.protocol;
+        irDataToSave.command = data.irData.command;
+        irDataToSave.bits = data.irData.bits;
+        irDataToSave.rawData = data.irData.rawData;
+        irDataToSave.key = data.irData.key;
+        irDataToSave.tv = data.irData.tv;
+        irDataToSave.color = data.irData.color;
+        irDataToSave.model = data.irData.model;
+        await irService.register(irDataToSave);
     }
 
 
@@ -367,27 +406,44 @@ class SocketService {
     async broadcastByAppKey(jsonData, ws, data) {
         const roomToBroadcast = currentRooms.filter(client => client.appKey === jsonData.data.appKey)[0];
 
-        if (jsonData.event === 'USER_COMMAND' && !jsonData.target) {
-            if (roomToBroadcast !== undefined) {
-                this.logTargets(roomToBroadcast);
-
-                roomToBroadcast.devices.forEach(device => {
-                    if (device.ws !== null && device.ws !== undefined) {
-                        device.ws.send(data);
-                        logSuccess("Message sent to: ", device.name);
-                    } else {
-                        logWarning("Not WebSocket assigned yet to: ", device.name);
-                    }
-
-                });
-                await this.broacastToOwnerApp(roomToBroadcast, data);
-            }
+        if ((jsonData.event === 'USER_COMMAND' || jsonData.event === 'REQUEST') && !jsonData.target) {
+            await this.sendEveryone(roomToBroadcast, data);
         } else {
+            if (jsonData.target) {
+                this.sendToTarget(roomToBroadcast, jsonData, data);
+                return;
+            }
+
             if (roomToBroadcast !== undefined)
                 await this.broacastToOwnerApp(roomToBroadcast, data);
             // Implementar lógica para atacara a un dispositivo 'target' que se incluya en el jsonData
             // Si no se incluye se envía a todos los dispositivos de una misma appKey
         }
+    }
+
+    async sendEveryone(roomToBroadcast, data) {
+        if (roomToBroadcast !== undefined) {
+            this.logTargets(roomToBroadcast);
+
+            roomToBroadcast.devices.forEach(device => {
+                if (device.ws !== null && device.ws !== undefined) {
+                    device.ws.send(data);
+                    logSuccess("Message sent to: ", device.name);
+                } else {
+                    logWarning("Not WebSocket assigned yet to: ", device.name);
+                }
+
+            });
+            await this.broacastToOwnerApp(roomToBroadcast, data);
+        }
+    }
+
+    sendToTarget(roomToBroadcast, jsonData, data) {
+        console.log('room to broadcast', roomToBroadcast);
+        console.log('target MAC', jsonData.target.MAC);
+        const targetDevice = roomToBroadcast.devices.filter(device => device.MAC === jsonData.target.MAC)[0];
+        targetDevice.ws.send(data);
+        logWarning("Enviando comando a dispositivo " + targetDevice.MAC);
     }
 
     /**
@@ -461,14 +517,24 @@ class SocketService {
     }
 
     displayInitialRooms() {
-        const displayRooms = JSON.parse(JSON.stringify(currentRooms));
+        const displayRooms = JSON.parse(JSON.stringify(currentRooms), 10);
         displayRooms.forEach(room => {
             room.devices = room.devices.map(device => `${device.MAC} - ${device.name}`);
             room.apps = room.apps.map(app => `${app.user}`);
         });
         logWarning('Initial rooms:', JSON.stringify(displayRooms, null, 2));
     }
+
+    async deleteDeviceFromRoom(mac, appKey) {
+        let selectedRoom = currentRooms.filter(room => room.appKey === appKey)[0];
+        let roomIdx = currentRooms.findIndex(room => room.appKey === appKey);
+        let devicesNotDeleted = selectedRoom.devices.filter(device => device.MAC !== mac);
+        currentRooms[roomIdx].devices = devicesNotDeleted;
+        this.displayInitialRooms();
+    }
 }
+
+
 
 module.exports = {
     SocketService
